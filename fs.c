@@ -128,8 +128,8 @@ int fs_mount(const char *disk_path) {
 }
 
 void fs_unmount() {
-    // TODO: Flush any cached data to disk (if applicable)
-    // TODO: Close the virtual disk file
+    // Flush any cached data to disk (if applicable)
+    // Close the virtual disk file
     if (disk_fd != -1) {
         close(disk_fd);
         disk_fd = -1;
