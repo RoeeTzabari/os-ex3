@@ -107,10 +107,24 @@ int fs_format(const char *disk_path) {
 
 
 int fs_mount(const char *disk_path) {
-    // TODO: Open the virtual disk file
-    // TODO: Read and validate the superblock
+    disk_fd = open(disk_path, O_RDWR, 0644);
+    if (disk_fd == -1) {
+        return -1;
+    }
+
+    // Read and validate the superblock
+    superblock sb;
+
+    lseek(disk_fd, 0, SEEK_SET);
+    read(disk_fd, &sb, sizeof(superblock));
+    if (sb.block_size != BLOCK_SIZE || sb.total_blocks != MAX_BLOCKS || sb.total_inodes != MAX_FILES)
+    {
+        close(disk_fd);
+        disk_fd = -1;
+        return -1;
+    }
     
-    return 0; // Return 0 on success, -1 on failure
+    return 0;
 }
 
 void fs_unmount() {
