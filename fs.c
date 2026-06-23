@@ -137,12 +137,31 @@ void fs_unmount() {
 }
 
 int fs_create(const char *filename) {
-    // TODO: Check if file already exists
-    // TODO: Find a free inode
-    // TODO: Initialize the inode (set used=1, size=0, copy filename)
-    // TODO: Update superblock (decrease free_inodes)
-    // TODO: Write updated inode and superblock to disk
-    
+    // Check if file already exists
+    if (find_inode(filename) != -1) { return -1; }
+
+    // Find a free inode
+    int free_inode_num = find_free_inode();
+    if (free_inode_num == -1) { return -1; }
+
+    // Initialize the inode (set used=1, size=0, copy filename)
+    inode new_inode;
+    new_inode.used = 1;
+    new_inode.size = 0;
+    strcpy(new_inode.name, filename);
+
+    // Update superblock (decrease free_inodes)
+    superblock sb;
+    lseek(disk_fd, 0, SEEK_SET);
+    read(disk_fd, &sb, sizeof(superblock));
+    sb.free_inodes--;
+
+    // Write updated inode and superblock to disk
+    lseek(disk_fd, 0, SEEK_SET);
+    write(disk_fd, &sb, sizeof(superblock));
+    lseek(disk_fd, 2 * BLOCK_SIZE + (free_inode_num * sizeof(inode)), SEEK_SET);
+    write(disk_fd, &new_inode, sizeof(inode));
+
     return 0; 
 }
 
