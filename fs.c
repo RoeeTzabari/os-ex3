@@ -52,14 +52,59 @@ void write_inode(int inode_num, const inode *source) {
 /* External Interface                          */
 /* ===================================================================== */
 
+// Create or overwrite the virtual disk file
 int fs_format(const char *disk_path) {
-    // TODO: Create or overwrite the virtual disk file
-    // TODO: Initialize and write the superblock
-    // TODO: Initialize and write the block bitmap
-    // TODO: Initialize and write the empty inode table
+    // Open the virtual disk file
+    int disk_fd = open(disk_path, O_RDWR | O_CREAT | O_TRUNC, 0644);
     
-    return 0; // Return 0 on success, -1 on failure
+    if (disk_fd == -1) {
+        return -1;
+    }
+
+    // Initialize and write the superblock
+    superblock sb;
+
+    sb.total_blocks = MAX_BLOCKS;
+    sb.block_size = BLOCK_SIZE;
+    sb.free_blocks = 2550;
+    sb.total_inodes = MAX_FILES;
+    sb.free_inodes = 256;
+    lseek(disk_fd, 0, SEEK_SET);
+    write(disk_fd, &sb, sizeof(superblock));
+
+    // Initialize and write the block bitmap
+    unsigned char bitmap[BLOCK_SIZE];
+    
+    memset(bitmap, 0, sizeof(bitmap));
+    for (int i = 0; i <= 9; i++) {
+        bitmap[i/8] |= (1 << (i%8));
+    }
+    lseek(disk_fd, BLOCK_SIZE, SEEK_SET);
+    write(disk_fd, bitmap, sizeof(bitmap));
+
+    // Initialize and write the empty inode table
+    inode inode_table[MAX_FILES];
+
+    memset(inode_table, 0, sizeof(inode_table));
+    lseek(disk_fd, 2 * BLOCK_SIZE, SEEK_SET);
+    write(disk_fd, inode_table, sizeof(inode_table));
+
+    // Initialize all data blocks as free
+    int current_block = 10;
+
+    while (current_block < 2560) {
+        char empty_block[BLOCK_SIZE] = {0};
+
+        lseek(disk_fd, current_block * BLOCK_SIZE, SEEK_SET);
+        write(disk_fd, empty_block, BLOCK_SIZE);
+        current_block++;
+    }
+
+    // Close the virtual disk file
+    close(disk_fd);
+    return 0;
 }
+
 
 int fs_mount(const char *disk_path) {
     // TODO: Open the virtual disk file
