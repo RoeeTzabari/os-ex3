@@ -6,50 +6,92 @@
 static int disk_fd = -1;
 
 /* ===================================================================== */
-/* Helper Functions                            */
+/*                           Helper Functions                            */
 /* ===================================================================== */
 
 /* Find an inode by filename. Returns inode number or -1 if not found. */
 int find_inode(const char *filename) {
-    // TODO: Implement
+    inode node;
+    
+    for (int inode_num = 0; inode_num < MAX_FILES; inode_num++) {
+        read_inode(inode_num, &node);
+        if (node.used == 1 && strcmp(node.name, filename) == 0) {
+            return inode_num;
+        }
+    }
+
     return -1;
 }
 
 /* Find a free inode. Returns inode number or -1 if none available. */
 int find_free_inode() {
-    // TODO: Implement
+    inode node;
+    
+    for (int inode_num = 0; inode_num < MAX_FILES; inode_num++) {
+        read_inode(inode_num, &node);
+        if (node.used == 0) {
+            return inode_num;
+        }
+    }
+
     return -1;
 }
 
 /* Find a free data block. Returns block number or -1 if disk is full. */
 int find_free_block() {
-    // TODO: Implement
+    unsigned char bitmap[BLOCK_SIZE];
+
+    lseek(disk_fd, BLOCK_SIZE, SEEK_SET);
+    read(disk_fd, bitmap, sizeof(bitmap));
+
+    for (int block_num = 0; block_num < MAX_BLOCKS; block_num++) {
+        if ( !(bitmap[block_num/8] & (1 << (block_num%8))) ) {
+            return block_num;
+        }
+    }
+    
     return -1;
 }
 
 /* Mark a specific block as used in the bitmap. */
 void mark_block_used(int block_num) {
-    // TODO: Implement
+    char byte;
+    lseek(disk_fd, BLOCK_SIZE + block_num / 8, SEEK_SET);
+    read(disk_fd, &byte, sizeof(unsigned char));
+    byte |= (1 << (block_num%8));
+    lseek(disk_fd, BLOCK_SIZE + block_num / 8, SEEK_SET);
+    write(disk_fd, &byte, sizeof(unsigned char));
 }
 
 /* Mark a specific block as free in the bitmap. */
 void mark_block_free(int block_num) {
-    // TODO: Implement
+    char byte;
+    lseek(disk_fd, BLOCK_SIZE + block_num / 8, SEEK_SET);
+    read(disk_fd, &byte, sizeof(unsigned char));
+    byte &= ~(1 << (block_num%8));
+    lseek(disk_fd, BLOCK_SIZE + block_num / 8, SEEK_SET);
+    write(disk_fd, &byte, sizeof(unsigned char));
 }
 
 /* Read a specific inode from the disk into the target structure. */
 void read_inode(int inode_num, inode *target) {
-    // TODO: Implement
+    int inode_location = 2 * BLOCK_SIZE + (inode_num * sizeof(inode));
+
+    lseek(disk_fd, inode_location, SEEK_SET);
+    read(disk_fd, target, sizeof(inode));
 }
 
 /* Write a specific inode structure to the disk. */
 void write_inode(int inode_num, const inode *source) {
-    // TODO: Implement
+    int inode_location = 2 * BLOCK_SIZE + (inode_num * sizeof(inode));
+
+    lseek(disk_fd, inode_location, SEEK_SET);
+    write(disk_fd, source, sizeof(inode));
 }
 
 
 /* ===================================================================== */
-/* External Interface                          */
+/*                           External Interface                          */
 /* ===================================================================== */
 
 // Create or overwrite the virtual disk file
@@ -159,8 +201,7 @@ int fs_create(const char *filename) {
     // Write updated inode and superblock to disk
     lseek(disk_fd, 0, SEEK_SET);
     write(disk_fd, &sb, sizeof(superblock));
-    lseek(disk_fd, 2 * BLOCK_SIZE + (free_inode_num * sizeof(inode)), SEEK_SET);
-    write(disk_fd, &new_inode, sizeof(inode));
+    write_inode(free_inode_num, &new_inode);
 
     return 0; 
 }
