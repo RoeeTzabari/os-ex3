@@ -53,3 +53,7 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+ex3.pdf
+fs_test
+disk
