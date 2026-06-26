@@ -9,6 +9,22 @@ static int disk_fd = -1;
 /*                           Helper Functions                            */
 /* ===================================================================== */
 
+/* Read a specific inode from the disk into the target structure. */
+void read_inode(int inode_num, inode *target) {
+    int inode_location = 2 * BLOCK_SIZE + (inode_num * sizeof(inode));
+
+    lseek(disk_fd, inode_location, SEEK_SET);
+    read(disk_fd, target, sizeof(inode));
+}
+
+/* Write a specific inode structure to the disk. */
+void write_inode(int inode_num, const inode *source) {
+    int inode_location = 2 * BLOCK_SIZE + (inode_num * sizeof(inode));
+
+    lseek(disk_fd, inode_location, SEEK_SET);
+    write(disk_fd, source, sizeof(inode));
+}
+
 /* Find an inode by filename. Returns inode number or -1 if not found. */
 int find_inode(const char *filename) {
     inode node;
@@ -73,20 +89,18 @@ void mark_block_free(int block_num) {
     write(disk_fd, &byte, sizeof(unsigned char));
 }
 
-/* Read a specific inode from the disk into the target structure. */
-void read_inode(int inode_num, inode *target) {
-    int inode_location = 2 * BLOCK_SIZE + (inode_num * sizeof(inode));
+/* Calculates the number of blocks needed for a given size*/
+int calculate_inode_blocks_size(int size) {
+    int inode_blocks_size;
 
-    lseek(disk_fd, inode_location, SEEK_SET);
-    read(disk_fd, target, sizeof(inode));
-}
+    if (size % BLOCK_SIZE == 0) {
+        inode_blocks_size = size / BLOCK_SIZE;
+    } 
+    else {
+        inode_blocks_size = (size / BLOCK_SIZE) + 1;
+    }
 
-/* Write a specific inode structure to the disk. */
-void write_inode(int inode_num, const inode *source) {
-    int inode_location = 2 * BLOCK_SIZE + (inode_num * sizeof(inode));
-
-    lseek(disk_fd, inode_location, SEEK_SET);
-    write(disk_fd, source, sizeof(inode));
+    return inode_blocks_size;
 }
 
 /* Free all file's data blocks. Returns the number of blocks used by the file. */
@@ -100,20 +114,6 @@ int free_blocks_file(const char *filename)
     for (int i = 0; i < inode_blocks_size; i++)
     {
         mark_block_free(node.blocks[i]);
-    }
-
-    return inode_blocks_size;
-}
-
-/* Calculates the number of blocks needed for a given size*/
-int calculate_inode_blocks_size(int size) {
-    int inode_blocks_size;
-
-    if (size % BLOCK_SIZE == 0) {
-        inode_blocks_size = size / BLOCK_SIZE;
-    } 
-    else {
-        inode_blocks_size = (size / BLOCK_SIZE) + 1;
     }
 
     return inode_blocks_size;
@@ -254,13 +254,13 @@ int fs_delete(const char *filename) {
     superblock sb;
 
     lseek(disk_fd, 0, SEEK_SET);
-    read(disk_fd, &sb, BLOCK_SIZE);
+    read(disk_fd, &sb, sizeof(superblock));
     sb.free_inodes++;
     sb.free_blocks += inode_blocks_size;
 
     // Write updates to disk
     lseek(disk_fd, 0, SEEK_SET);
-    write(disk_fd, &sb, BLOCK_SIZE);
+    write(disk_fd, &sb, sizeof(superblock));
     write_inode(inode_num, &node);
 
     return 0;
@@ -301,7 +301,7 @@ int fs_write(const char *filename, const void *data, int size) {
     superblock sb;
 
     lseek(disk_fd, 0, SEEK_SET);
-    read(disk_fd, &sb, BLOCK_SIZE);
+    read(disk_fd, &sb, sizeof(superblock));
 
     // Find the file's inode
     inode file;
@@ -349,7 +349,7 @@ int fs_write(const char *filename, const void *data, int size) {
     // Update the superblock
     sb.free_blocks -= inode_blocks_size;
     lseek(disk_fd, 0, SEEK_SET);
-    write(disk_fd, &sb, BLOCK_SIZE);
+    write(disk_fd, &sb, sizeof(superblock));
     
     return 0; // Return 0 on success
 }
