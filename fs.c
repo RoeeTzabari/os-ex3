@@ -207,12 +207,43 @@ int fs_create(const char *filename) {
 }
 
 int fs_delete(const char *filename) {
-    // TODO: Find the file's inode
-    // TODO: Mark all data blocks used by the file as free in the bitmap
-    // TODO: Mark the inode as free
-    // TODO: Update superblock (increase free_blocks and free_inodes)
-    // TODO: Write updates to disk
+    // Find the file's inode
+    int inode_num = find_inode(filename);
+
+    if (inode_num == -1) { return -1; }
+
+    // Mark all data blocks used by the file as free in the bitmap
+    inode node;
+    read_inode(inode_num, &node);
+    int inode_blocks_size;
+    if (node.size % BLOCK_SIZE == 0) {
+        inode_blocks_size = node.size / BLOCK_SIZE;
+    } 
+    else {
+        inode_blocks_size = (node.size / BLOCK_SIZE) + 1;
+    }
+
+    for (int i = 0; i < inode_blocks_size; i++)
+    {
+        mark_block_free(node.blocks[i]);
+    }
     
+    // Mark the inode as free
+    node.used = 0;
+
+    // Update superblock (increase free_blocks and free_inodes)
+    superblock sb;
+
+    lseek(disk_fd, 0, SEEK_SET);
+    read(disk_fd, &sb, BLOCK_SIZE);
+    sb.free_inodes++;
+    sb.free_blocks += inode_blocks_size;
+
+    // Write updates to disk
+    lseek(disk_fd, 0, SEEK_SET);
+    write(disk_fd, &sb, BLOCK_SIZE);
+    write_inode(inode_num, &node);
+
     return 0;
 }
 
