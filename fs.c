@@ -290,6 +290,14 @@ int fs_list(char filenames[][MAX_FILENAME], int max_files) {
 }
 
 int fs_write(const char *filename, const void *data, int size) {
+    // Check if the size is valid
+    int inode_blocks_size = calculate_inode_blocks_size(size);
+
+    if (inode_blocks_size > MAX_DIRECT_BLOCKS) {
+        return -1;
+    }
+
+    // Read the superblock
     superblock sb;
 
     lseek(disk_fd, 0, SEEK_SET);
@@ -310,7 +318,6 @@ int fs_write(const char *filename, const void *data, int size) {
     sb.free_blocks += blocks_removed;
     
     // Allocate new blocks and update the bitmap
-    int inode_blocks_size = calculate_inode_blocks_size(size);
     if (sb.free_blocks < inode_blocks_size) { return -1; }
 
     for (int i = 0; i < inode_blocks_size; i++)
@@ -348,9 +355,38 @@ int fs_write(const char *filename, const void *data, int size) {
 }
 
 int fs_read(const char *filename, void *buffer, int size) {
-    // TODO: Find the file's inode
-    // TODO: Determine how many bytes to actually read
-    // TODO: Read data from the file's blocks into the buffer
-    
-    return 0; // Return number of bytes read
+    if (size < 0) {
+        return -1;
+    }
+
+    // Find the file's inode
+    inode file;
+    int inode_num = find_inode(filename);
+
+    if (inode_num == -1) {
+        return -1;
+    }
+
+    read_inode(inode_num, &file);
+
+    // Determine how many bytes to actually read
+    int actual_size = (size > file.size) ? file.size : size;
+
+    // Read data from the file's blocks into the buffer
+    char *temp_buffer = (char*)buffer;
+    int inode_blocks_size = calculate_inode_blocks_size(actual_size);
+    int bytes_left = actual_size;
+    int bytes_read = 0;
+
+    for (int i = 0; i < inode_blocks_size; i++) {
+        int chunk_size = (bytes_left > BLOCK_SIZE) ? BLOCK_SIZE : bytes_left;
+
+        lseek(disk_fd, file.blocks[i] * BLOCK_SIZE, SEEK_SET);
+        read(disk_fd, temp_buffer + bytes_read, chunk_size);
+
+        bytes_left -= chunk_size;
+        bytes_read += chunk_size;
+    }
+
+    return actual_size; // Return number of bytes read
 }
