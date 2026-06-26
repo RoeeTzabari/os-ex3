@@ -248,10 +248,26 @@ int fs_delete(const char *filename) {
 }
 
 int fs_list(char filenames[][MAX_FILENAME], int max_files) {
-    // TODO: Scan the inode table for used inodes
-    // TODO: Copy valid filenames to the provided array (up to max_files)
-    
-    return 0; // Return the number of files found
+    if (max_files > MAX_FILES) {
+        return -1;
+    }
+
+    int counter = 0;
+
+    // Scan the inode table for used inodes
+    for (int inode_num = 0; inode_num < MAX_FILES && counter < max_files; inode_num++)
+    {
+        inode node;
+        read_inode(inode_num, &node);
+
+        // Copy valid filenames to the provided array (up to max_files)
+        if (node.used == 1) {
+            strcpy(filenames[counter], node.name);
+            counter++;
+        }
+    }
+        
+    return counter; // Return the number of files found
 }
 
 int fs_write(const char *filename, const void *data, int size) {
